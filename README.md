@@ -3,6 +3,8 @@
 
 |ID|Protocol  |Lang - ecosystem|Description|Provider|Findings|Report|  
 |:--|:--------|:------|:----------|:-------|:----:|:----:|
+|12|[FrankSol - Solana Audit Arena(Frankcastle)]()|Rust🦀 - Solana(Anchor)|Anchor staking protocol with liquid receipts, yield strategies, and fee routing|Solo|1 High , 3 Medium|[📄](https://github.com/772005himanshu/public_audits/blob/main/Metalend_RektOff_Solana.md)|
+|11|[Metalend - RektOff Rust]()|(Rust🦀 - Solana(Anchor))|Lending , Borrowing and Flash Loan Contract|Solo|12 High , 3 Medium|[📄](https://github.com/772005himanshu/public_audits/blob/main/Frank_Sol_Audit_Report.md)|
 |10|[Move Audit - Kann Audits ]()|Move - Aptos |Briding and Locking Contract|Solo|1 Critical , 3 High , 4 Medium|[📄](https://github.com/772005himanshu/public_audits/blob/main/JupiterLend_Audit.md)|
 |9|[Looping Contract - Kann audit]()|(Solidity - EVM)|Lending , Borrowing and Flash Loan Contract|Solo|3 High , 2 Medium|[📄](https://github.com/772005himanshu/public_audits/blob/main/FinalAudit.md)|
 |8|[Jupiter Lend](https://jup.ag/lend/earn)|Rust - Solana(Anchor)|Earn yield and borrow assets efficiently, maximizing returns for both lenders and borrowers.|Solo|2 High|[📄](https://github.com/772005himanshu/public_audits/blob/main/JupiterLend_Audit.md)|
