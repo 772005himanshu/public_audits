@@ -749,9 +749,81 @@ Alternatively, leverage Anchor's native `init` macro, which inherently handles p
 ```
 
 
+## Finding 4
+- **Severity:** Medium
+-  **Researcher**: 772005himanshu (GitHub) + @Himansh71624010 (X)
+- **Component:** `programs/stake_v2` (`withdraw_from_yield`, `deploy_to_yield`)
+- **Location:** `withdraw_from_yield.rs` (lines 18-25, 56-66)
+
+### Summary
+
+`stake_v2::withdraw_from_yield` is intended to withdraw SOL from the external `yield_generator` program. It validates the external yield accounts using typed Anchor accounts:
+
+```rust
+pub yield_state: Account<YieldState>,
+pub yield_position: Account<UserPosition>,
+```
+
+These account types are imported from `yield_generator`, and legitimate `yield_generator` state and position accounts are owned by the `yield_generator` program.
+
+However, Anchor's generated account loader for `stake_v2::WithdrawFromYield` loads these typed accounts using the currently executing program ID (`stake_v2`). The derived Owner check therefore rejects legitimate `yield_generator`-owned accounts with an `IllegalOwner` error before the CPI is reached.
+
+The intended seed checks use `seeds::program = yield_generator_program.address()`, but that does not change the owner enforced by the loading mechanism. The owner check happens before the CPI account is passed to `yield_generator::cpi::withdraw`.
+
+### Impact
+
+- Protocol denial of service: the `withdraw_from_yield`  paths will systematically fail and revert with an `IllegalOwner` error. 
+- Funds deposited in the yield generator cannot be withdrawn through the standard pool instruction.
+
+### Root Cause
+
+- The `Account<'info, T>` type in Anchor v2 strictly enforces that `info.owner == T::owner()`. By default, for structs imported or used within a different program, Anchor checks that the owner matches the ID of the program where the instruction is executing (`stake_v2`), instead of the external program (`yield_generator`).
+- Adding `seeds::program = yield_generator_program.address()` verifies the PDA derivation but does not override the implicit owner constraint checked by `Account<T>`.
+
+### Evidence
+
+From `programs/stake_v2/src/instructions/withdraw_from_yield.rs`:
+
+```rust
+    #[account(
+        mut,
+        seeds = [b"yield_state"],
+        bump = yield_state.state_bump,
+        seeds::program = yield_generator_program.address()
+    )]
+    pub yield_state: Account<YieldState>, // Implicitly enforces owner == stake_v2
+    #[account(mut, constraint = yield_position.owner == *fund_manager.address() @ StakeError::Unauthorized)]
+    pub yield_position: Account<UserPosition>, // Implicitly enforces owner == stake_v2
+```
+
+Because `yield_state` and `yield_position` are actually owned by `yield_generator`, the generated deserialization code will throw an `IllegalOwner` error, preventing execution.
 
 
+## Proof Of Concept
 
+
+Command to run test:
+
+Add test to the FrankSol/programs/stake_v2/src/tests/test_withdraw_bug.rs
+
+```bin
+cargo test --package stake_v2 --test test_withdraw_bug
+```
+
+
+```rust
+use {
+    anchor_lang_v2::{programs::System, Id, InstructionData, ToAccountMetas},
+    litesvm::LiteSVM,
+    solana_instruction::Instruction,
+    solana_keypair::Keypair,
+    solana_message::{Message, VersionedMessage},
+    solana_pubkey::Pubkey,
+    solana_signer::Signer,
+    solana_transaction::versioned::VersionedTransaction,
+    std::{fs, path::PathBuf},
+    sha2::{Sha256, Digest},
+};
 
 fn try_load_program_binary(name: &str) -> Option<Vec<u8>> {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -935,5 +1007,3 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 - **Option A:** Change `Account<YieldState>` and `Account<UserPosition>` to `UncheckedAccount` or `AccountInfo`, and manually verify the owner and deserialize the data inside the instruction handler.
 - **Option B:** If Anchor v2 allows, define an explicit `owner = yield_generator_program.address()` constraint on the `#[account(...)]` macro, or correctly configure the shared types such that `T::owner()` resolves to the `yield_generator` program ID instead of `stake_v2`.
-
-
